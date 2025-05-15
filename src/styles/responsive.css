@@ -1,0 +1,116 @@
+/* Responsive Styles */
+
+@media screen and (min-width: 768px) {
+    .app-bar {
+      padding: 16px 32px;
+    }
+  
+    .app-bar__brand h1 {
+      font-size: 1.8em;
+    }
+  
+    .app-bar__menu {
+      display: none;
+    }
+  
+    .app-bar__navigation {
+      position: static;
+      width: auto;
+      height: auto;
+      background-color: transparent;
+      box-shadow: none;
+      padding: 0;
+    }
+  
+    .app-bar__navigation ul {
+      display: flex;
+      gap: 24px;
+    }
+  
+    .app-bar__navigation li {
+      margin-bottom: 0;
+    }
+  
+    .app-bar__navigation a {
+      color: white;
+      padding: 8px 12px;
+    }
+  
+    .app-bar__navigation a:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+  
+    main {
+      padding: 32px;
+    }
+  
+    .stories {
+      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    }
+  
+    .stories-map {
+      height: 500px;
+    }
+  
+    .story-detail {
+      padding: 32px;
+    }
+  
+    .story-detail__map {
+      height: 500px;
+    }
+  
+    .add-story {
+      padding: 32px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+  
+    .add-story__map {
+      height: 400px;
+    }
+  
+    .about {
+      padding: 32px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+  }
+  
+  @media screen and (min-width: 1024px) {
+    .app-bar__brand h1 {
+      font-size: 2em;
+    }
+  
+    .stories {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  
+    .content__heading {
+      font-size: 2.5em;
+    }
+  }
+  
+  @media screen and (max-width: 767px) {
+    .app-bar__navigation {
+      transform: translateX(-250px);
+    }
+  
+    .app-bar__navigation.open {
+      transform: translateX(0);
+    }
+  }
+  
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+    
+    ::view-transition-old(page-transition),
+    ::view-transition-new(page-transition) {
+      animation: none !important;
+    }
+  }

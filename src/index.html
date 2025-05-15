@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="StoryApp - Aplikasi berbagi cerita dan pengalaman" />
+    <meta name="theme-color" content="#1E88E5" />
+
+    <title>Story App</title>
+
+    <!-- PWA -->
+    <link rel="manifest" href="/app.webmanifest" />
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+    <link rel="icon" href="/favicon.png" type="image/png" />
+
+    <!-- Leaflet for maps -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+
+    <!-- Font Awesome for icons -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    />
+
+    <!-- Google Fonts -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <!-- App Shell -->
+    <header class="app-bar" data-auth="required">
+      <div class="app-bar__brand">
+        <h1>StoryApp</h1>
+      </div>
+      <button class="app-bar__menu" id="hamburgerButton" aria-label="Toggle Navigation Menu">
+        <i class="fas fa-bars"></i>
+      </button>
+      <nav class="app-bar__navigation" id="navigationDrawer">
+        <ul>
+          <li>
+            <a href="#/home" aria-label="Home"><i class="fas fa-home"></i> Beranda</a>
+          </li>
+          <li>
+            <a href="#/add" aria-label="Add Story"><i class="fas fa-plus-circle"></i> Tambah Cerita</a>
+          </li>
+          <li>
+            <a href="#/about" aria-label="About"><i class="fas fa-info-circle"></i> Tentang</a>
+          </li>
+          <li class="subscribe-item">
+            <button id="subscribeButton" class="subscribe-button" aria-label="Subscribe to Notifications">
+              <i class="fas fa-bell"></i> Notifikasi
+            </button>
+          </li>
+          <li class="logout-item">
+            <button id="logoutButton" class="logout-button" aria-label="Logout">
+              <i class="fas fa-sign-out-alt"></i> Keluar
+            </button>
+          </li>
+          <li>
+            <span id="network-status" class="network-status">Online</span>
+          </li>
+        </ul>
+      </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main id="mainContent" tabindex="0">
+      <!-- Content will be injected by JavaScript -->
+    </main>
+
+    <!-- Footer -->
+    <footer data-auth="required">
+      <p>StoryApp &copy; 2025</p>
+      <p>Built with <i class="fas fa-heart"></i> for Frontend Web Development</p>
+    </footer>
+
+    <!-- Loading Indicator -->
+    <div id="loading" aria-hidden="true">
+      <div class="loader"></div>
+    </div>
+
+    <!-- Install App Prompt -->
+    <div id="installPrompt" class="install-prompt hidden">
+      <div class="install-prompt__content">
+        <p>Pasang StoryApp di perangkat Anda!</p>
+        <div class="install-prompt__buttons">
+          <button id="installButton" class="btn btn-primary">Pasang</button>
+          <button id="closeInstallPrompt" class="btn btn-secondary">Nanti</button>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
