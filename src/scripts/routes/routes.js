@@ -11,12 +11,14 @@ const routes = {
   "/register": new RegisterPage(),
 
   "/": () => {
+    console.log('Creating HomePage instance for root route');
     const view = new HomePage();
     const presenter = new HomePresenter(view);
     view.setPresenter(presenter);
     return view;
   }, // default page
   "/home": () => {
+    console.log('Creating HomePage instance for /home route');
     const view = new HomePage();
     const presenter = new HomePresenter(view);
     view.setPresenter(presenter);

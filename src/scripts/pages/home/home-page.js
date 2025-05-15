@@ -10,10 +10,12 @@ import {
 
 class HomePage {
   constructor() {
+    console.log('HomePage constructor called');
     this._presenter = null;
   }
 
   async render() {
+    console.log('HomePage render called');
     return `
       <section class="content" id="mainContent" tabindex="0">
         <h2 class="content__heading">Semua Cerita</h2>
@@ -42,10 +44,13 @@ class HomePage {
   }
 
   async afterRender() {
+    console.log('HomePage afterRender called');
     if (!this._presenter) {
+      console.log('Creating new HomePresenter');
       this._presenter = new HomePresenter(this);
     }
     
+    console.log('Initializing presenter');
     await this._presenter.init();
     this._initSearchListener();
   }
@@ -77,6 +82,11 @@ class HomePage {
     if (indicator) {
       indicator.classList.remove('show');
     }
+  }
+
+  setPresenter(presenter) {
+    console.log('Setting presenter:', presenter);
+    this._presenter = presenter;
   }
 }
 

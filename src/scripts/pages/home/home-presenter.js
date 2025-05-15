@@ -9,6 +9,7 @@ import {
 
 class HomePresenter {
   constructor(view) {
+    console.log('HomePresenter constructor called with view:', view);
     this._view = view;
     this._stories = [];
     this._map = null;
@@ -23,13 +24,16 @@ class HomePresenter {
   }
 
   _initOnlineListener() {
+    console.log('Initializing online listener');
     window.addEventListener('online', () => {
+      console.log('Device went online');
       this._isOnline = true;
       this._view.hideOfflineIndicator();
       this.init(); // Refresh data when going online
     });
 
     window.addEventListener('offline', () => {
+      console.log('Device went offline');
       this._isOnline = false;
       this._view.showOfflineIndicator();
     });
@@ -82,18 +86,19 @@ class HomePresenter {
       if (this._isOnline) {
         // Ambil data dari API terlebih dahulu
         result = await StoryAPI.getAllStories();
+        console.log('API Response:', result);
         
         if (!result.error) {
           // Simpan ke IndexedDB untuk akses offline
-          await StoryIdb.putBulkStories(result.data);
-          console.log('Stories saved to IndexedDB:', result.data.length, 'stories');
+          await StoryIdb.putBulkStories(result.data.stories);
+          console.log('Stories saved to IndexedDB:', result.data.stories.length, 'stories');
         }
       } else {
         // Jika offline, ambil dari IndexedDB
         const stories = await StoryIdb.getAllStories();
         result = {
           error: false,
-          data: stories,
+          data: { stories },
         };
         console.log('Stories retrieved from IndexedDB:', stories.length, 'stories');
       }
@@ -101,7 +106,8 @@ class HomePresenter {
       if (result.error) {
         this._showError(result.message);
       } else {
-        this._stories = result.data;
+        this._stories = result.data.stories;
+        console.log('Stories to render:', this._stories);
         this._renderStories();
         
         if (!this._isInitialized) {
@@ -112,6 +118,7 @@ class HomePresenter {
         }
       }
     } catch (error) {
+      console.error('Error in init:', error);
       this._showError("Gagal memuat cerita: " + error.message);
       
       // Jika error, coba ambil dari IndexedDB sebagai fallback
@@ -162,19 +169,26 @@ class HomePresenter {
   }
 
   _renderStories() {
+    console.log('Rendering stories:', this._stories);
     const container = document.querySelector("#stories");
-    if (!container) return;
+    if (!container) {
+      console.error('Stories container not found!');
+      return;
+    }
 
     container.innerHTML = "";
 
-    if (this._stories.length === 0) {
+    if (!this._stories || this._stories.length === 0) {
+      console.log('No stories to display');
       container.innerHTML = '<div class="no-results">Tidak ada cerita yang ditemukan</div>';
       return;
     }
 
+    console.log('Adding stories to container');
     this._stories.forEach((story) => {
       container.innerHTML += createStoryItemTemplate(story);
     });
+    console.log('Stories rendered successfully');
   }
 
   _initMap() {

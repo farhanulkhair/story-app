@@ -197,6 +197,7 @@ class App {
   }
 
   async renderPage() {
+    console.log('Starting page render');
     const mainElement = document.querySelector("main");
     if (mainElement) {
       mainElement.classList.add("transition-prepare");
@@ -204,13 +205,16 @@ class App {
 
     try {
       let url = UrlParser.parseActiveUrlWithCombiner();
+      console.log('Current URL:', url);
       const isLoggedIn = AuthAPI.isLoggedIn();
+      console.log('Is user logged in:', isLoggedIn);
 
       // Update auth elements visibility based on current route and login status
       this._updateAuthElements();
 
       // Jika pengguna belum login dan mencoba mengakses halaman yang dilindungi
       if (this._needsAuthentication(url) && !isLoggedIn) {
+        console.log('User not authenticated, redirecting to login');
         // Redirect ke halaman login
         window.location.hash = "#/login";
         return;
@@ -218,6 +222,7 @@ class App {
 
       // Jika pengguna sudah login dan mencoba mengakses halaman login/register
       if (this._isAuthPage(url) && isLoggedIn) {
+        console.log('Authenticated user trying to access auth page, redirecting to home');
         // Redirect ke halaman home
         window.location.hash = "#/";
         return;
@@ -226,6 +231,7 @@ class App {
       // Re-parse URL setelah potential redirect
       url = UrlParser.parseActiveUrlWithCombiner();
       const pageFactory = routes[url];
+      console.log('Page factory for URL:', pageFactory);
 
       if (!pageFactory) {
         console.error('No route found for URL:', url);
@@ -247,7 +253,9 @@ class App {
       }
 
       try {
+        console.log('Rendering page content');
         this._content.innerHTML = await page.render();
+        console.log('Running afterRender');
         await page.afterRender();
       } catch (error) {
         console.error('Error rendering page:', error);

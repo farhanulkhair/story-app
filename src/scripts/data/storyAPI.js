@@ -91,6 +91,11 @@ class StoryAPI {
   // Fetch all stories
   async getAllStories() {
     try {
+      const token = AuthAPI.getToken();
+      if (!token) {
+        return { error: true, message: "Not authenticated" };
+      }
+
       // Try to get from IndexedDB first
       const offlineStories = await StoryIdb.getAllStories();
       if (offlineStories.length > 0) {
@@ -103,16 +108,28 @@ class StoryAPI {
       }
 
       // If no offline data, fetch from API
-      const response = await fetch(`${this.baseUrl}/stories`);
+      console.log('Fetching stories from API...');
+      const response = await fetch(`${this.baseUrl}/stories`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       const responseJson = await response.json();
+      console.log('API Response:', responseJson);
 
       if (responseJson.error) {
-        return responseJson;
+        return { error: true, message: responseJson.message };
       }
 
       // Store in IndexedDB for offline access
-      await StoryIdb.putBulkStories(responseJson.data.stories);
-      return responseJson;
+      const stories = responseJson.listStory || [];
+      await StoryIdb.putBulkStories(stories);
+      console.log('Stories saved to IndexedDB:', stories.length);
+
+      return {
+        error: false,
+        data: { stories }
+      };
     } catch (error) {
       console.error('Error in getAllStories:', error);
       
