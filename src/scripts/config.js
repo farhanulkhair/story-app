@@ -9,6 +9,12 @@ const CONFIG = {
   PUSH_MSG_SUBSCRIBE_URL: '/notifications/subscribe',
   PUSH_MSG_UNSUBSCRIBE_URL: '/notifications/subscribe', // DELETE method untuk unsubscribe
   WS_URL: 'wss://story-api.dicoding.dev',
+  API_HEADERS: {
+    'Content-Type': 'application/json',
+    'X-Skip-Interceptor': true,
+  },
+  API_TIMEOUT: 10000, // 10 seconds
+  CACHE_EXPIRATION: 60 * 60 * 1000, // 1 hour
   // API Endpoints
   ENDPOINTS: {
     REGISTER: '/register',

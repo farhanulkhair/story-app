@@ -99,9 +99,27 @@ module.exports = merge(common, {
   },
   plugins: [
     new CleanWebpackPlugin(),
-    new WorkboxWebpackPlugin.InjectManifest({
-      swSrc: './src/sw.js',
+    new WorkboxWebpackPlugin.GenerateSW({
       swDest: 'sw.js',
+      clientsClaim: true,
+      skipWaiting: true,
+      runtimeCaching: [
+        {
+          urlPattern: new RegExp('^https://story-api\\.dicoding\\.dev/'),
+          handler: 'NetworkFirst',
+          options: {
+            cacheName: 'api-cache',
+            networkTimeoutSeconds: 5,
+            expiration: {
+              maxEntries: 100,
+              maxAgeSeconds: 72 * 60 * 60, // 72 hours
+            },
+            cacheableResponse: {
+              statuses: [0, 200],
+            },
+          },
+        },
+      ],
     }),
     new MiniCssExtractPlugin({
       filename: 'styles/[name].[contenthash].css',
@@ -110,10 +128,10 @@ module.exports = merge(common, {
     new CopyWebpackPlugin({
       patterns: [
         {
-          from: path.resolve(__dirname, 'src/public'),
-          to: path.resolve(__dirname, 'dist'),
+          from: path.resolve(__dirname, 'src/public/'),
+          to: path.resolve(__dirname, 'dist/'),
           globOptions: {
-            ignore: ['**/images/**'],
+            ignore: ['**/images/**'], // Ignore images as they're handled by webpack
           },
         },
       ],

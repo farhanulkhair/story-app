@@ -6,7 +6,8 @@
   "scripts": {
     "start-dev": "webpack serve --config webpack.dev.js",
     "build": "webpack --config ./webpack.prod.js",
-    "serve": "http-server ./dist --port 9000"
+    "serve": "http-server ./dist --port 9000",
+    "build:gh-pages": "webpack --config ./webpack.prod.js && cp dist/index.html dist/404.html"
   },
   "keywords": [
     "story",
@@ -16,6 +17,7 @@
   ],
   "author": "Your Name",
   "license": "ISC",
+  "homepage": "https://farhanulkhair.github.io/story-app",
   "devDependencies": {
     "@babel/core": "^7.18.5",
     "@babel/plugin-transform-runtime": "^7.27.1",
