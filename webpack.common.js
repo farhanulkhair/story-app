@@ -30,16 +30,16 @@ module.exports = {
     new HtmlWebpackPlugin({
       filename: 'index.html',
       template: path.resolve(__dirname, 'src/index.html'),
-      favicon: path.resolve(__dirname, 'src/public/favicon.png'),
     }),
     new CopyWebpackPlugin({
       patterns: [
         {
           from: path.resolve(__dirname, 'src/public/'),
           to: path.resolve(__dirname, 'dist/'),
-          globOptions: {
-            ignore: ['**/images/**'],
-          },
+        },
+        {
+          from: path.resolve(__dirname, 'src/public/images'),
+          to: path.resolve(__dirname, 'dist/images'),
         },
       ],
     }),

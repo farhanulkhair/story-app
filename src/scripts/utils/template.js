@@ -84,13 +84,11 @@ const createAddStoryFormTemplate = () => `
       <div class="form-group">
         <label for="description">
           Deskripsi Cerita <span class="required">*</span>
-          <small>(minimal 10 karakter)</small>
         </label>
         <textarea 
           id="description" 
           name="description" 
           required 
-          minlength="10"
           placeholder="Tulis deskripsi story kamu"
         ></textarea>
         <div class="form-validation-message" id="descriptionValidation"></div>
@@ -130,12 +128,27 @@ const createSkipLinkTemplate = () => `
   <a href="#mainContent" class="skip-link">Lewati ke Konten</a>
 `;
 
-const createSubscribeButtonTemplate = () => `
-  <li class="subscribe-item">
-    <button id="subscribeButton" class="subscribe-button" aria-label="Subscribe to Notifications">
-      <i class="fas fa-bell"></i> Notifikasi
-    </button>
-  </li>
+const createNotificationButtonTemplate = () => `
+  <button id="notificationToggle" class="notification-toggle" aria-label="Toggle Notifications">
+    <i class="fas fa-bell"></i>
+    <span class="notification-status">Aktifkan Notifikasi</span>
+  </button>
+`;
+
+const createInstallButtonTemplate = () => `
+  <button id="installButton" class="install-button hidden" aria-label="Install App">
+    <i class="fas fa-download"></i>
+    <span>Install App</span>
+  </button>
+`;
+
+const createToastTemplate = (message) => `
+  <div class="toast-container">
+    <div class="toast-message">
+      <p>${message}</p>
+      <button class="toast-close" aria-label="Close notification">×</button>
+    </div>
+  </div>
 `;
 
 const showLoading = () => {
@@ -149,7 +162,41 @@ const hideLoading = () => {
 };
 
 const showResponseMessage = (message = "Periksa koneksi internet Anda") => {
-  alert(message);
+  // Remove existing toast if any
+  const existingToast = document.querySelector('.toast-container');
+  if (existingToast) {
+    existingToast.remove();
+  }
+
+  // Create and append new toast
+  document.body.insertAdjacentHTML('beforeend', createToastTemplate(message));
+  
+  const toastContainer = document.querySelector('.toast-container');
+  const closeButton = toastContainer.querySelector('.toast-close');
+
+  // Add animation class after a small delay to trigger animation
+  setTimeout(() => {
+    toastContainer.classList.add('show');
+  }, 10);
+
+  // Auto hide after 3 seconds
+  const autoHideTimeout = setTimeout(() => {
+    hideToast(toastContainer);
+  }, 3000);
+
+  // Handle manual close
+  closeButton.addEventListener('click', () => {
+    clearTimeout(autoHideTimeout);
+    hideToast(toastContainer);
+  });
+};
+
+const hideToast = (toastContainer) => {
+  toastContainer.classList.remove('show');
+  // Remove element after animation
+  setTimeout(() => {
+    toastContainer.remove();
+  }, 300);
 };
 
 const initNavigationDrawer = () => {
@@ -173,7 +220,8 @@ export {
   createStoryDetailTemplate,
   createAddStoryFormTemplate,
   createSkipLinkTemplate,
-  createSubscribeButtonTemplate,
+  createNotificationButtonTemplate,
+  createInstallButtonTemplate,
   showLoading,
   hideLoading,
   showResponseMessage,

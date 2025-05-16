@@ -87,72 +87,63 @@ class AuthAPI {
 
   // Subscribe to push notifications
   async subscribePushNotification(subscription) {
-    try {
-      const token = this.getToken();
-      if (!token) {
-        return { error: true, message: "Not authenticated" };
-      }
+    const token = this.getToken();
+    if (!token) return { error: true, message: 'Unauthorized' };
 
+    try {
       const response = await fetch(`${CONFIG.BASE_URL}${CONFIG.PUSH_MSG_SUBSCRIBE_URL}`, {
-        method: "POST",
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           endpoint: subscription.endpoint,
           keys: {
-            p256dh: btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('p256dh')))),
-            auth: btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('auth')))),
+            p256dh: subscription.getKey('p256dh') ? 
+              btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('p256dh')))) : '',
+            auth: subscription.getKey('auth') ?
+              btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('auth')))) : '',
           },
         }),
       });
 
       const responseJson = await response.json();
-      
-      if (responseJson.error) {
-        console.error('Subscribe error:', responseJson);
-        return { error: true, message: responseJson.message || "Gagal mengaktifkan notifikasi" };
-      }
-      
-      return { error: false, data: responseJson };
+      return responseJson;
     } catch (error) {
-      console.error('Subscribe error:', error);
-      return { error: true, message: "Gagal terhubung ke server" };
+      console.error('Error subscribing to push:', error);
+      return {
+        error: true,
+        message: error.message || 'Failed to subscribe to push notification',
+      };
     }
   }
 
   // Unsubscribe from push notifications
   async unsubscribePushNotification(subscription) {
-    try {
-      const token = this.getToken();
-      if (!token) {
-        return { error: true, message: "Not authenticated" };
-      }
+    const token = this.getToken();
+    if (!token) return { error: true, message: 'Unauthorized' };
 
+    try {
       const response = await fetch(`${CONFIG.BASE_URL}${CONFIG.PUSH_MSG_UNSUBSCRIBE_URL}`, {
-        method: "DELETE",
+        method: 'DELETE',
         headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
-          endpoint: subscription.endpoint
+          endpoint: subscription.endpoint,
         }),
       });
 
       const responseJson = await response.json();
-      
-      if (responseJson.error) {
-        console.error('Unsubscribe error:', responseJson);
-        return { error: true, message: responseJson.message || "Gagal menonaktifkan notifikasi" };
-      }
-      
-      await subscription.unsubscribe();
-      return { error: false, data: responseJson };
+      return responseJson;
     } catch (error) {
-      console.error('Unsubscribe error:', error);
-      return { error: true, message: "Gagal terhubung ke server" };
+      console.error('Error unsubscribing from push:', error);
+      return {
+        error: true,
+        message: error.message || 'Failed to unsubscribe from push notification',
+      };
     }
   }
 }

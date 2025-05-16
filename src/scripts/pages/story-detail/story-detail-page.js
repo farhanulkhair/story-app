@@ -1,5 +1,5 @@
 import UrlParser from "../../routes/url-parser";
-import { createStoryDetailTemplate } from "../../utils/index";
+import { createStoryDetailTemplate } from "../../utils/template";
 import StoryDetailPresenter from "./story-detail-presenter";
 import L from 'leaflet';
 

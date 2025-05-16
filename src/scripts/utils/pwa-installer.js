@@ -1,53 +1,73 @@
-let deferredPrompt;
-
 const PWAInstaller = {
   init() {
-    // Prevent the mini-infobar from appearing on mobile
+    this._deferredPrompt = null;
+    this._initListeners();
+  },
+
+  _initListeners() {
+    // Tangkap event beforeinstallprompt
     window.addEventListener('beforeinstallprompt', (e) => {
       // Prevent Chrome 67 and earlier from automatically showing the prompt
       e.preventDefault();
-      // Stash the event so it can be triggered later
-      deferredPrompt = e;
+      // Simpan event untuk digunakan nanti
+      this._deferredPrompt = e;
+      // Update UI untuk menunjukkan tombol install
       this._showInstallPromotion();
     });
 
-    // Handle the install button click
-    document.getElementById('installButton')?.addEventListener('click', async () => {
-      this._hideInstallPromotion();
-      // Show the install prompt
-      deferredPrompt.prompt();
-      // Wait for the user to respond to the prompt
-      const { outcome } = await deferredPrompt.userChoice;
-      console.log(`User response to the install prompt: ${outcome}`);
-      // We've used the prompt, and can't use it again, discard it
-      deferredPrompt = null;
-    });
-
-    // Handle the close button click
-    document.getElementById('closeInstallPrompt')?.addEventListener('click', () => {
-      this._hideInstallPromotion();
-    });
-
-    // Listen for successful installation
+    // Tangkap event appinstalled
     window.addEventListener('appinstalled', () => {
-      this._hideInstallPromotion();
+      // Log install ke analytics
       console.log('PWA was installed');
+      // Sembunyikan prompt instalasi
+      this._hideInstallPromotion();
     });
   },
 
+  async promptInstall() {
+    if (!this._deferredPrompt) {
+      console.log('No installation prompt available');
+      return;
+    }
+
+    // Tampilkan prompt instalasi
+    this._deferredPrompt.prompt();
+
+    // Tunggu user untuk merespons prompt
+    const { outcome } = await this._deferredPrompt.userChoice;
+    console.log(`User response to the install prompt: ${outcome}`);
+
+    // We've used the prompt, and can't use it again, discard it
+    this._deferredPrompt = null;
+  },
+
   _showInstallPromotion() {
-    const installPrompt = document.getElementById('installPrompt');
-    if (installPrompt) {
-      installPrompt.classList.remove('hidden');
+    // Cari tombol install
+    const installButton = document.getElementById('installButton');
+    if (installButton) {
+      installButton.classList.remove('hidden');
+      installButton.addEventListener('click', () => this.promptInstall());
     }
   },
 
   _hideInstallPromotion() {
-    const installPrompt = document.getElementById('installPrompt');
-    if (installPrompt) {
-      installPrompt.classList.add('hidden');
+    const installButton = document.getElementById('installButton');
+    if (installButton) {
+      installButton.classList.add('hidden');
     }
   },
+
+  // Cek apakah PWA sudah terinstall
+  async isPWAInstalled() {
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      return true;
+    }
+    // Untuk iOS
+    if (window.navigator.standalone === true) {
+      return true;
+    }
+    return false;
+  }
 };
 
 export default PWAInstaller; 

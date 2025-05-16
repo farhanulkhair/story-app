@@ -1,5 +1,7 @@
 import StoryAPI from "../../data/storyAPI";
-import { showLoading, hideLoading, showResponseMessage } from "../../utils/index";
+import { showLoading, hideLoading, showResponseMessage } from "../../utils/template";
+import AuthAPI from "../../data/authAPI";
+import CONFIG from "../../config";
 
 class AddPresenter {
   constructor({ view }) {
@@ -55,13 +57,12 @@ class AddPresenter {
 
   async handleFormSubmit({ description, location }) {
     try {
+      console.log('Starting form submission...');
       // Validate all required fields
       const validationErrors = [];
       
       if (!description || description.trim() === '') {
         validationErrors.push('Deskripsi cerita wajib diisi');
-      } else if (description.length < 10) {
-        validationErrors.push('Deskripsi cerita minimal 10 karakter');
       }
 
       if (!this._photoBlob) {
@@ -72,12 +73,14 @@ class AddPresenter {
         validationErrors.push('Lokasi cerita wajib dipilih');
       }
 
+      // If there are validation errors, show them and stop
       if (validationErrors.length > 0) {
-        showResponseMessage(`Validasi gagal:\n${validationErrors.join('\n')}`);
+        this._view.showValidationErrors(validationErrors);
         return;
       }
 
       showLoading();
+      console.log('Submitting story to API...');
 
       const result = await StoryAPI.addNewStory({
         description: description.trim(),
@@ -86,44 +89,35 @@ class AddPresenter {
         lon: location.lng,
       });
 
+      console.log('API Response:', result);
+
       if (result.error) {
         throw new Error(result.message || "Gagal menambahkan cerita");
       }
 
-      // Ensure we have complete story data
-      const newStory = {
-        id: result.data.id,
-        name: result.data.name || 'Anonymous',
-        description: description.trim(),
-        photoUrl: result.data.photoUrl,
-        createdAt: result.data.createdAt || new Date().toISOString(),
-        lat: location.lat,
-        lon: location.lng,
-        userId: result.data.userId
-      };
+      // Story successfully added
+      showResponseMessage('Story berhasil ditambahkan!');
 
-      // Bersihkan resources
+      // Clean up resources
       this._stopMediaStream();
       this._cleanup();
 
-      // Tampilkan pesan sukses
-      showResponseMessage("Cerita berhasil ditambahkan!");
-      
-      // Dispatch event dengan data story yang lengkap
+      // Dispatch event with complete story data
       const storyAddedEvent = new CustomEvent('story-added', {
-        detail: { story: newStory }
+        detail: { story: result.data.story }
       });
       
-      console.log('Dispatching story-added event with data:', newStory);
+      console.log('Dispatching story-added event');
       window.dispatchEvent(storyAddedEvent);
 
-      // Navigasi ke home page
-      hideLoading();
-      window.location.hash = "#/home";
+      // Redirect to home page
+      window.location.hash = '#/home';
 
     } catch (error) {
-      console.error("Error adding story:", error);
-      showResponseMessage("Gagal menambahkan cerita: " + (error.message || "Terjadi kesalahan"));
+      console.error('Error in form submission:', error);
+      hideLoading();
+      showResponseMessage(error.message || 'Gagal menambahkan story');
+    } finally {
       hideLoading();
     }
   }

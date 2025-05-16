@@ -7,6 +7,7 @@ const CopyWebpackPlugin = require('copy-webpack-plugin');
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
+const ImageMinimizerPlugin = require('image-minimizer-webpack-plugin');
 
 module.exports = merge(common, {
   mode: 'production',
@@ -38,6 +39,15 @@ module.exports = merge(common, {
           'postcss-loader',
         ],
       },
+      {
+        test: /\.(png|svg|jpg|jpeg|gif)$/i,
+        type: 'asset',
+        parser: {
+          dataUrlCondition: {
+            maxSize: 8 * 1024 // 8kb
+          }
+        }
+      }
     ],
   },
   optimization: {
@@ -63,6 +73,19 @@ module.exports = merge(common, {
               discardComments: { removeAll: true },
             },
           ],
+        },
+      }),
+      new ImageMinimizerPlugin({
+        minimizer: {
+          implementation: ImageMinimizerPlugin.imageminMinify,
+          options: {
+            plugins: [
+              ['imagemin-mozjpeg', { quality: 80 }],
+              ['imagemin-pngquant', { quality: [0.6, 0.8] }],
+              ['imagemin-gifsicle', { interlaced: true }],
+              ['imagemin-svgo', { plugins: [{ removeViewBox: false }] }],
+            ],
+          },
         },
       }),
     ],
@@ -99,27 +122,10 @@ module.exports = merge(common, {
   },
   plugins: [
     new CleanWebpackPlugin(),
-    new WorkboxWebpackPlugin.GenerateSW({
+    new WorkboxWebpackPlugin.InjectManifest({
+      swSrc: './src/sw.js',
       swDest: 'sw.js',
-      clientsClaim: true,
-      skipWaiting: true,
-      runtimeCaching: [
-        {
-          urlPattern: new RegExp('^https://story-api\\.dicoding\\.dev/'),
-          handler: 'NetworkFirst',
-          options: {
-            cacheName: 'api-cache',
-            networkTimeoutSeconds: 5,
-            expiration: {
-              maxEntries: 100,
-              maxAgeSeconds: 72 * 60 * 60, // 72 hours
-            },
-            cacheableResponse: {
-              statuses: [0, 200],
-            },
-          },
-        },
-      ],
+      maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB
     }),
     new MiniCssExtractPlugin({
       filename: 'styles/[name].[contenthash].css',
@@ -130,10 +136,12 @@ module.exports = merge(common, {
         {
           from: path.resolve(__dirname, 'src/public/'),
           to: path.resolve(__dirname, 'dist/'),
-          globOptions: {
-            ignore: ['**/images/**'], // Ignore images as they're handled by webpack
-          },
         },
+        {
+          from: path.resolve(__dirname, 'src/public/images'),
+          to: path.resolve(__dirname, 'dist/images'),
+          noErrorOnMissing: true
+        }
       ],
     }),
   ],

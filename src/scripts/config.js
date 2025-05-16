@@ -7,7 +7,7 @@ const CONFIG = {
   OBJECT_STORE_NAME: 'stories',
   PUSH_MSG_VAPID_PUBLIC_KEY: 'BCCs2eonMI-6H2ctvFaWg-UYdDv387Vno_bzUzALpB442r2lCnsHmtrx8biyPi_E-1fSGABK_Qs_GlvPoJJqxbk',
   PUSH_MSG_SUBSCRIBE_URL: '/notifications/subscribe',
-  PUSH_MSG_UNSUBSCRIBE_URL: '/notifications/subscribe', // DELETE method untuk unsubscribe
+  PUSH_MSG_UNSUBSCRIBE_URL: '/notifications/subscribe', // Same URL as subscribe but with DELETE method
   WS_URL: 'wss://story-api.dicoding.dev',
   API_HEADERS: {
     'Content-Type': 'application/json',

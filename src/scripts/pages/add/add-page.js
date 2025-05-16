@@ -1,5 +1,5 @@
 import AddPresenter from "./add-presenter";
-import { createAddStoryFormTemplate } from "../../utils/index";
+import { createAddStoryFormTemplate } from "../../utils/template";
 
 class AddPage {
   constructor() {

@@ -151,8 +151,8 @@ body {
 
 .form-control input:focus {
   outline: none;
-  border-color: #4285f4;
-  box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.15);
+  border-color: #1e293b;
+  box-shadow: 0 0 0 3px rgba(30, 41, 59, 0.15);
 }
 
 /* Button Styles */
@@ -165,7 +165,7 @@ body {
 }
 
 .btn {
-  background-color: #4285f4;
+  background-color: #1e293b;
   color: white;
   border: none;
   border-radius: 6px;
@@ -177,12 +177,12 @@ body {
 }
 
 .btn:hover {
-  background-color: #3367d6;
+  background-color: #334155;
   transform: translateY(-2px);
 }
 
 .btn:disabled {
-  background-color: #a4c2f4;
+  background-color: #94a3b8;
   cursor: not-allowed;
   transform: none;
 }
@@ -197,15 +197,14 @@ body {
 
 .login-form__do-not-have-account a,
 .register-form__already-have-account a {
-  color: #4285f4;
+  color: #1e293b;
   text-decoration: none;
   font-weight: 500;
-  transition: color 0.3s ease;
 }
 
 .login-form__do-not-have-account a:hover,
 .register-form__already-have-account a:hover {
-  color: #3367d6;
+  color: #334155;
   text-decoration: underline;
 }
 
@@ -507,6 +506,73 @@ body {
   color: #842029;
 }
 
+/* Toast Notification Styles */
+.toast-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 9999;
+  transform: translateY(100px);
+  opacity: 0;
+  transition: all 0.3s ease-in-out;
+}
+
+.toast-container.show {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.toast-message {
+  background-color: #333;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  min-width: 200px;
+  max-width: 400px;
+}
+
+.toast-message p {
+  margin: 0;
+  flex-grow: 1;
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.toast-close:hover {
+  opacity: 1;
+}
+
+@media (max-width: 768px) {
+  .toast-container {
+    left: 20px;
+    right: 20px;
+    bottom: 20px;
+  }
+
+  .toast-message {
+    width: 100%;
+    max-width: none;
+  }
+}
+
 /* Main Content */
 main {
   flex: 1;
@@ -679,16 +745,79 @@ main {
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-  margin-bottom: 40px;
+  margin: 20px 0;
   position: relative;
-  z-index: 50;
-  transition: box-shadow 0.3s ease;
+  z-index: 1;
 }
 
 .stories-map {
   height: 100%;
   width: 100%;
-  z-index: 50;
+}
+
+#mapAdd {
+  height: 300px;
+  width: 100%;
+  border-radius: 8px;
+  margin: 10px 0;
+}
+
+#mapDetail {
+  height: 300px;
+  width: 100%;
+  border-radius: 8px;
+  margin: 10px 0;
+}
+
+/* Fix Leaflet marker icon z-index issues */
+.leaflet-pane {
+  z-index: 1;
+}
+
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 1;
+}
+
+.leaflet-marker-icon {
+  z-index: 2;
+}
+
+.leaflet-popup {
+  z-index: 3;
+}
+
+/* Fix marker popup styles */
+.marker-popup {
+  padding: 10px;
+}
+
+.marker-popup h3 {
+  margin: 0 0 10px 0;
+  font-size: 16px;
+}
+
+.marker-popup img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 5px 0;
+}
+
+.marker-popup p {
+  margin: 5px 0;
+  font-size: 14px;
+}
+
+.marker-popup a {
+  display: inline-block;
+  margin-top: 10px;
+  color: #1E88E5;
+  text-decoration: none;
+}
+
+.marker-popup a:hover {
+  text-decoration: underline;
 }
 
 /* Story Detail */
@@ -1265,12 +1394,12 @@ footer i {
 
 .form-control input:focus {
   outline: none;
-  border-color: #1e88e5;
-  box-shadow: 0 0 0 2px rgba(30, 136, 229, 0.2);
+  border-color: #1e293b;
+  box-shadow: 0 0 0 2px rgba(30, 41, 59, 0.2);
 }
 
 .btn {
-  background-color: #1e88e5;
+  background-color: #1e293b;
   color: white;
   padding: 0.75rem 1.5rem;
   border: none;
@@ -1282,63 +1411,72 @@ footer i {
 }
 
 .btn:hover {
-  background-color: #1976d2;
+  background-color: #334155;
 }
 
 .btn:disabled {
-  background-color: #90caf9;
+  background-color: #94a3b8;
   cursor: not-allowed;
 }
 
 .install-prompt {
   position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: #fff;
-  padding: 1rem;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
-  transform: translateY(100%);
-  transition: transform 0.3s ease;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: white;
+  padding: 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   z-index: 1000;
+  transition: all 0.3s ease;
 }
 
-.install-prompt.show {
-  transform: translateY(0);
+.install-prompt.hidden {
+  display: none;
 }
 
 .install-prompt__content {
-  max-width: 600px;
-  margin: 0 auto;
   text-align: center;
 }
 
 .install-prompt__content p {
-  margin-bottom: 1rem;
-  font-size: 1.1rem;
+  margin: 0 0 12px 0;
+  font-size: 16px;
   color: #333;
 }
 
 .install-prompt__buttons {
   display: flex;
-  gap: 1rem;
+  gap: 8px;
   justify-content: center;
 }
 
-.btn-secondary {
-  background-color: #757575;
-  color: white;
-  padding: 0.75rem 1.5rem;
+.install-prompt__buttons button {
+  padding: 8px 16px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 1rem;
-  font-weight: 500;
-  transition: background-color 0.3s ease;
+  font-weight: 600;
+  transition: background-color 0.2s;
 }
 
-.btn-secondary:hover {
-  background-color: #616161;
+.install-prompt__buttons .btn-primary {
+  background-color: #1E88E5;
+  color: white;
+}
+
+.install-prompt__buttons .btn-primary:hover {
+  background-color: #1976D2;
+}
+
+.install-prompt__buttons .btn-secondary {
+  background-color: #e0e0e0;
+  color: #333;
+}
+
+.install-prompt__buttons .btn-secondary:hover {
+  background-color: #d5d5d5;
 }
 
 /* App Shell Styles */
@@ -1506,3 +1644,157 @@ footer i {
   background-color: #f44336;
   color: white;
 } 
+
+.notification-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 0.5rem;
+  background-color: #4CAF50;
+  color: white;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-right: 1rem;
+}
+
+.notification-toggle:hover {
+  background-color: #45a049;
+}
+
+.notification-toggle:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.notification-toggle.loading {
+  position: relative;
+  pointer-events: none;
+}
+
+.notification-toggle.loading::after {
+  content: "";
+  position: absolute;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  border-top-color: transparent;
+  right: 0.5rem;
+  animation: spin 1s linear infinite;
+}
+
+.notification-toggle.subscribed {
+  background-color: #f44336;
+}
+
+.notification-toggle.subscribed:hover {
+  background-color: #da190b;
+}
+
+.notification-toggle i {
+  font-size: 1.2rem;
+}
+
+.notification-toggle.hidden {
+  display: none;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 768px) {
+  .notification-toggle .notification-status {
+    display: none;
+  }
+  
+  .notification-toggle {
+    padding: 0.5rem;
+  }
+  
+  .notification-toggle.loading::after {
+    right: 0.25rem;
+  }
+} 
+
+.install-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s;
+  margin-right: 16px;
+}
+
+.install-button:hover {
+  background-color: #45a049;
+}
+
+.install-button i {
+  font-size: 16px;
+}
+
+/* Responsive styles */
+@media screen and (max-width: 768px) {
+  .install-button {
+    padding: 6px 12px;
+    font-size: 12px;
+    margin-right: 8px;
+  }
+  
+  .install-button i {
+    font-size: 14px;
+  }
+}
+
+.notification-item {
+  margin: 0;
+  padding: 0;
+}
+
+.notification-item .notification-toggle {
+  width: 100%;
+  text-align: left;
+  padding: 1rem;
+  margin: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background-color 0.3s;
+}
+
+.notification-item .notification-toggle:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.notification-item .notification-toggle.subscribed {
+  background-color: transparent;
+}
+
+.notification-item .notification-toggle.subscribed:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+@media screen and (max-width: 768px) {
+  .notification-item .notification-toggle {
+    justify-content: flex-start;
+  }
+  
+  .notification-item .notification-status {
+    display: inline !important;
+  }
+}

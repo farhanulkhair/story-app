@@ -1,11 +1,15 @@
-import StoryAPI from "../../data/storyAPI";
-import StoryIdb from "../../data/database";
+import StoryAPI from "../../data/storyAPI.js";
+import StoryIdb from "../../data/database.js";
 import {
   createStoryItemTemplate,
   showLoading,
   hideLoading,
   showResponseMessage,
-} from "../../utils/index";
+} from "../../utils/template";
+import AuthAPI from "../../data/authAPI.js";
+import NetworkStatus from "../../utils/network-status";
+import CONFIG from "../../config";
+import NotificationHelper from "../../utils/notification-helper.js";
 
 class HomePresenter {
   constructor(view) {
@@ -14,133 +18,292 @@ class HomePresenter {
     this._stories = [];
     this._map = null;
     this._markers = [];
-    this._isOnline = navigator.onLine;
     this._isInitialized = false;
+    this._refreshInterval = null;
+    this._refreshRate = 10000; // Refresh every 10 seconds
+    this._isFetching = false;
+    this._lastFetchedStoryId = null;
 
-    // Gunakan bind untuk memastikan konteks 'this' tetap terjaga
-    this._boundStoryAddedHandler = this._handleStoryAdded.bind(this);
-    this._initOnlineListener();
-    this._initStoryAddedListener();
+    // Bind event handlers
+    this._handleStoryAdded = this._handleStoryAdded.bind(this);
+    this._boundVisibilityChange = this._handleVisibilityChange.bind(this);
+  }
+
+  async init() {
+    console.log('Initializing HomePresenter');
+    showLoading();
+
+    try {
+      // Initialize listeners
+      this._initOnlineListener();
+      this._initStoryAddedListener();
+      this._initVisibilityListener();
+      this._startPeriodicRefresh();
+
+      // Load initial data
+      if (NetworkStatus.isOnline()) {
+        await this._fetchFreshData();
+      } else {
+        await this._loadFromIndexedDB();
+      }
+      
+      // Initialize map after data is loaded
+      await this._initMap();
+      this._isInitialized = true;
+    } catch (error) {
+      console.error('Error in init:', error);
+      showResponseMessage('Gagal memuat cerita: ' + error.message);
+    } finally {
+      hideLoading();
+    }
   }
 
   _initOnlineListener() {
     console.log('Initializing online listener');
-    window.addEventListener('online', () => {
-      console.log('Device went online');
-      this._isOnline = true;
-      this._view.hideOfflineIndicator();
-      this.init(); // Refresh data when going online
-    });
-
-    window.addEventListener('offline', () => {
-      console.log('Device went offline');
-      this._isOnline = false;
-      this._view.showOfflineIndicator();
-    });
+    this._onlineCallback = async (isOnline) => {
+      console.log('Network status changed:', isOnline ? 'online' : 'offline');
+      if (isOnline) {
+        console.log('Device is online, refreshing data...');
+        this._view.hideOfflineIndicator();
+        await this._fetchFreshData();
+      } else {
+        console.log('Device is offline, showing indicator');
+        this._view.showOfflineIndicator();
+        await this._loadFromIndexedDB();
+      }
+    };
+    NetworkStatus.registerCallback(this._onlineCallback);
   }
 
   _initStoryAddedListener() {
-    // Penting: Hapus event listener lama sebelum menambahkan yang baru
-    window.removeEventListener('story-added', this._boundStoryAddedHandler);
-    // Tambahkan event listener baru
-    window.addEventListener('story-added', this._boundStoryAddedHandler);
-    console.log('Story-added event listener initialized');
+    console.log('Initializing story-added event listener');
+    window.removeEventListener('story-added', this._handleStoryAdded);
+    window.addEventListener('story-added', this._handleStoryAdded);
+    console.log('Story-added event listener registered successfully');
+  }
+
+  _initVisibilityListener() {
+    document.addEventListener('visibilitychange', this._boundVisibilityChange);
+  }
+
+  _handleVisibilityChange() {
+    if (document.visibilityState === 'visible') {
+      console.log('Page became visible, refreshing data...');
+      this._fetchFreshData(true);
+    }
+  }
+
+  _startPeriodicRefresh() {
+    console.log('Starting periodic refresh...');
+    if (this._refreshInterval) {
+      clearInterval(this._refreshInterval);
+    }
+
+    this._refreshInterval = setInterval(async () => {
+      if (NetworkStatus.isOnline() && document.visibilityState === 'visible' && !this._isFetching) {
+        console.log('Performing periodic refresh...');
+        await this._fetchFreshData(true);
+      }
+    }, this._refreshRate);
+  }
+
+  _stopPeriodicRefresh() {
+    if (this._refreshInterval) {
+      clearInterval(this._refreshInterval);
+      this._refreshInterval = null;
+    }
   }
 
   async _handleStoryAdded(event) {
     console.log('Story added event received:', event.detail);
     
     try {
-      if (event.detail?.story) {
-        const newStory = event.detail.story;
-        
-        // Update IndexedDB dengan story baru
-        await StoryIdb.putStory(newStory);
-        
-        // Update list stories di memory dengan story baru
-        this._stories = [newStory, ...this._stories];
-        
-        // Render ulang daftar stories
-        this._renderStories();
-        
-        // Update marker di peta
-        if (this._map) {
-          this._updateMap();
-        }
-        
-        console.log('Story list updated with new story');
+      if (!event.detail?.story) {
+        throw new Error('Invalid story data received');
       }
+
+      // Add the new story to IndexedDB first
+      await StoryIdb.putStory(event.detail.story);
+      
+      // Get fresh list from IndexedDB
+      const stories = await StoryIdb.getAllStories();
+      this._stories = stories;
+      
+      // Update the view
+      this._view.updateStoryList(this._stories);
+      
+      // Update map if initialized
+      if (this._map) {
+        this._updateMap();
+      }
+
+      // Fetch fresh data in the background without blocking
+      this._fetchFreshData().catch(error => {
+        console.warn('Background data refresh failed:', error);
+      });
     } catch (error) {
       console.error('Error handling new story:', error);
+      showResponseMessage('Terjadi kesalahan saat memperbarui daftar cerita: ' + (error.message || 'Unknown error'));
     }
   }
 
-  async init() {
-    if (!this._isInitialized) {
-      showLoading();
-    }
-
+  async _fetchFreshData() {
     try {
-      let result;
-      
-      if (this._isOnline) {
-        // Ambil data dari API terlebih dahulu
-        result = await StoryAPI.getAllStories();
-        console.log('API Response:', result);
-        
-        if (!result.error) {
-          // Simpan ke IndexedDB untuk akses offline
-          await StoryIdb.putBulkStories(result.data.stories);
-          console.log('Stories saved to IndexedDB:', result.data.stories.length, 'stories');
-        }
-      } else {
-        // Jika offline, ambil dari IndexedDB
-        const stories = await StoryIdb.getAllStories();
-        result = {
-          error: false,
-          data: { stories },
-        };
-        console.log('Stories retrieved from IndexedDB:', stories.length, 'stories');
+      if (!StoryAPI) {
+        throw new Error('StoryAPI is not initialized');
       }
 
-      if (result.error) {
-        this._showError(result.message);
+      console.log('Fetching fresh data...');
+      this._isFetching = true;
+
+      const response = await StoryAPI.getAllStories().catch(error => {
+        console.error('Error calling getAllStories:', error);
+        throw new Error('Failed to fetch stories: ' + (error.message || 'Unknown error'));
+      });
+      
+      console.log('Response from getAllStories:', response);
+      
+      if (!response.error && response.data?.stories) {
+        // Ensure stories are sorted by createdAt before syncing
+        const sortedStories = response.data.stories.sort((a, b) => {
+          const dateB = new Date(b.createdAt);
+          const dateA = new Date(a.createdAt);
+          return dateB - dateA;
+        });
+
+        // Get current stories from IndexedDB for comparison
+        const currentStories = await StoryIdb.getAllStories();
+        
+        // Find truly new stories (not in IndexedDB and created in last minute)
+        const thirtySecondsAgo = new Date(Date.now() - 30000); // 30 seconds ago
+        const newStories = sortedStories.filter(newStory => {
+          // Check if story is really new (created in last 30 seconds)
+          const storyDate = new Date(newStory.createdAt);
+          if (storyDate < thirtySecondsAgo) {
+            return false; // Skip old stories
+          }
+
+          // Check if story exists in current stories
+          const exists = currentStories.some(existingStory => 
+            existingStory.id === newStory.id
+          );
+
+          // Only include stories that don't exist and aren't our own
+          return !exists && newStory.id !== this._lastFetchedStoryId;
+        });
+
+        console.log('Truly new stories found:', newStories.length);
+        
+        if (newStories.length > 0) {
+          console.log('Sending notifications for new stories:', newStories);
+          // Sort new stories by creation date (newest first) and only notify for the latest one
+          const latestStory = newStories[0]; // Get only the most recent story
+          
+          await this._notifyNewStories([latestStory]);
+          this._lastFetchedStoryId = latestStory.id;
+        }
+
+        // Update stories in IndexedDB
+        await StoryIdb.syncStories(sortedStories);
+        
+        // Update the stories list and view
+        this._stories = await StoryIdb.getAllStories();
+        if (this._view && typeof this._view.updateStoryList === 'function') {
+          this._view.updateStoryList(this._stories);
+        } else {
+          console.error('View or updateStoryList not properly initialized');
+        }
+        
+        // Update map if needed
+        if (this._map) {
+          this._updateMap();
+        }
       } else {
-        this._stories = result.data.stories;
-        console.log('Stories to render:', this._stories);
-        this._renderStories();
+        throw new Error(response.message || 'Failed to fetch stories');
+      }
+    } catch (error) {
+      console.error('Error fetching fresh data:', error);
+      // Try to load from IndexedDB as fallback
+      await this._loadFromIndexedDB();
+      throw error;
+    } finally {
+      this._isFetching = false;
+    }
+  }
+
+  async _notifyNewStories(newStories) {
+    try {
+      // Cek apakah notifikasi diizinkan
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+      
+      if (!subscription) {
+        console.log('User not subscribed to notifications');
+        return;
+      }
+
+      // Kirim notifikasi untuk setiap story baru (reverse order agar yang terbaru muncul terakhir)
+      for (const story of [...newStories].reverse()) {
+        await NotificationHelper.sendNotification({
+          title: 'Story Baru dari ' + story.name,
+          options: {
+            body: story.description.substring(0, 100) + (story.description.length > 100 ? '...' : ''),
+            icon: story.photoUrl || '/favicon.png',
+            badge: '/favicon.png',
+            tag: `new-story-${story.id}`, // Unique tag per story
+            renotify: true,
+            timestamp: new Date(story.createdAt).getTime(),
+            data: {
+              url: `/#/detail/${story.id}`,
+              storyId: story.id,
+              createdAt: story.createdAt,
+            },
+            vibrate: [100, 50, 100],
+            actions: [
+              {
+                action: 'view',
+                title: 'Lihat Story'
+              },
+              {
+                action: 'close',
+                title: 'Tutup'
+              }
+            ]
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error sending notification:', error);
+    }
+  }
+
+  async _loadFromIndexedDB() {
+    try {
+      const stories = await StoryIdb.getAllStories();
+      if (stories.length > 0) {
+        console.log('Loading stories from IndexedDB:', stories.length);
+        this._stories = stories;
+        if (this._view && typeof this._view.updateStoryList === 'function') {
+          this._view.updateStoryList(this._stories);
+        } else {
+          console.error('View or updateStoryList not properly initialized');
+        }
         
         if (!this._isInitialized) {
-          this._initMap();
+          await this._initMap();
           this._isInitialized = true;
         } else {
           this._updateMap();
         }
+      } else {
+        console.log('No stories found in IndexedDB');
+        if (this._view && typeof this._view.showEmptyMessage === 'function') {
+          this._view.showEmptyMessage();
+        }
       }
     } catch (error) {
-      console.error('Error in init:', error);
-      this._showError("Gagal memuat cerita: " + error.message);
-      
-      // Jika error, coba ambil dari IndexedDB sebagai fallback
-      try {
-        const stories = await StoryIdb.getAllStories();
-        if (stories.length > 0) {
-          this._stories = stories;
-          this._renderStories();
-          if (!this._isInitialized) {
-            this._initMap();
-            this._isInitialized = true;
-          } else {
-            this._updateMap();
-          }
-          this._view.showOfflineIndicator();
-          console.log('Using cached stories from IndexedDB:', stories.length, 'stories');
-        }
-      } catch (dbError) {
-        console.error('Error getting stories from IndexedDB:', dbError);
-      }
-    } finally {
-      hideLoading();
+      console.error('Error loading from IndexedDB:', error);
+      showResponseMessage('Gagal memuat data dari penyimpanan lokal');
     }
   }
 
@@ -155,7 +318,7 @@ class HomePresenter {
       }
 
       this._stories = stories;
-      this._renderStories();
+      this._view.updateStoryList(this._stories);
       this._updateMap();
     } catch (error) {
       this._showError("Gagal mencari cerita: " + error.message);
@@ -168,35 +331,46 @@ class HomePresenter {
     showResponseMessage(message);
   }
 
-  _renderStories() {
-    console.log('Rendering stories:', this._stories);
-    const container = document.querySelector("#stories");
-    if (!container) {
-      console.error('Stories container not found!');
-      return;
-    }
+  async _initMap() {
+    try {
+      const mapContainer = document.querySelector("#storiesMap");
+      if (!mapContainer) {
+        console.warn('Map container not found, waiting for container...');
+        // Wait for the container to be available
+        await new Promise(resolve => {
+          const observer = new MutationObserver((mutations, obs) => {
+            const container = document.querySelector("#storiesMap");
+            if (container) {
+              obs.disconnect();
+              resolve();
+            }
+          });
+          
+          observer.observe(document.body, {
+            childList: true,
+            subtree: true
+          });
+        });
+      }
+      
+      // Clean up existing map if any
+      if (this._map) {
+        this._map.remove();
+        this._map = null;
+        this._markers = [];
+      }
 
-    container.innerHTML = "";
-
-    if (!this._stories || this._stories.length === 0) {
-      console.log('No stories to display');
-      container.innerHTML = '<div class="no-results">Tidak ada cerita yang ditemukan</div>';
-      return;
-    }
-
-    console.log('Adding stories to container');
-    this._stories.forEach((story) => {
-      container.innerHTML += createStoryItemTemplate(story);
-    });
-    console.log('Stories rendered successfully');
-  }
-
-  _initMap() {
-    const mapContainer = document.querySelector("#storiesMap");
-    if (!mapContainer) return;
-    
-    if (!this._map) {
-      this._map = L.map("storiesMap").setView([-2.548926, 118.014863], 5);
+      console.log('Initializing map...');
+      
+      // Configure default icon
+      L.Icon.Default.prototype.options.imagePath = 'https://unpkg.com/leaflet@1.9.4/dist/images/';
+      
+      this._map = L.map("storiesMap", {
+        minZoom: 2,
+        maxZoom: 18,
+        zoomControl: true,
+        attributionControl: true
+      }).setView([-2.548926, 118.014863], 5);
 
       const baseLayer = L.tileLayer(
         "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
@@ -232,9 +406,18 @@ class HomePresenter {
       };
 
       L.control.layers(baseLayers).addTo(this._map);
-    }
+      
+      // Force a resize event to ensure proper rendering
+      setTimeout(() => {
+        this._map.invalidateSize();
+      }, 100);
 
-    this._updateMap();
+      console.log('Map initialized successfully');
+      this._updateMap();
+    } catch (error) {
+      console.error('Error initializing map:', error);
+      throw error;
+    }
   }
 
   _updateMap() {
@@ -269,6 +452,56 @@ class HomePresenter {
       const group = L.featureGroup(this._markers);
       this._map.fitBounds(group.getBounds());
     }
+  }
+
+  destroy() {
+    console.log('Cleaning up HomePresenter...');
+    
+    // Clear refresh interval
+    this._stopPeriodicRefresh();
+    
+    // Remove event listeners
+    window.removeEventListener('story-added', this._handleStoryAdded);
+    document.removeEventListener('visibilitychange', this._boundVisibilityChange);
+    
+    // Remove network status callback
+    if (this._onlineCallback) {
+      NetworkStatus.unregisterCallback(this._onlineCallback);
+    }
+    
+    // Clean up map thoroughly
+    if (this._map) {
+      // Remove all markers
+      this._markers.forEach(marker => {
+        marker.remove();
+        if (marker.getPopup()) {
+          marker.getPopup().remove();
+        }
+      });
+      this._markers = [];
+
+      // Remove all layers
+      this._map.eachLayer((layer) => {
+        layer.remove();
+      });
+
+      // Remove the map
+      this._map.remove();
+      this._map = null;
+
+      // Clean up any remaining map tiles
+      const mapTiles = document.querySelectorAll('.leaflet-tile');
+      mapTiles.forEach(tile => tile.remove());
+
+      // Remove any remaining Leaflet-related elements
+      const leafletContainers = document.querySelectorAll('.leaflet-container');
+      leafletContainers.forEach(container => container.remove());
+    }
+
+    // Reset state
+    this._stories = [];
+    this._isInitialized = false;
+    this._isFetching = false;
   }
 }
 

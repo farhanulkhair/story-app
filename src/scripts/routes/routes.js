@@ -11,18 +11,14 @@ const routes = {
   "/register": new RegisterPage(),
 
   "/": () => {
-    console.log('Creating HomePage instance for root route');
-    const view = new HomePage();
-    const presenter = new HomePresenter(view);
-    view.setPresenter(presenter);
-    return view;
-  }, // default page
+    console.log('Initializing HomePage for root route');
+    const homePage = new HomePage();
+    return homePage;
+  },
   "/home": () => {
-    console.log('Creating HomePage instance for /home route');
-    const view = new HomePage();
-    const presenter = new HomePresenter(view);
-    view.setPresenter(presenter);
-    return view;
+    console.log('Initializing HomePage for /home route');
+    const homePage = new HomePage();
+    return homePage;
   },
   "/add": new AddPage(),
   "/about": new AboutPage(),

@@ -1,7 +1,7 @@
 import StoryAPI from "../../data/storyAPI";
 import Database from "../../data/database";
 import AuthAPI from "../../data/authAPI";
-import { showLoading, hideLoading, showResponseMessage } from "../../utils/index";
+import { showLoading, hideLoading, showResponseMessage } from "../../utils/template";
 
 class StoryDetailPresenter {
   constructor({ view, storyId }) {

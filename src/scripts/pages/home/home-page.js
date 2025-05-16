@@ -6,12 +6,14 @@ import {
   showLoading,
   hideLoading,
   showResponseMessage,
-} from "../../utils/index";
+} from "../../utils/template";
 
 class HomePage {
   constructor() {
     console.log('HomePage constructor called');
     this._presenter = null;
+    this._boundHashChangeHandler = this._handleHashChange.bind(this);
+    this._stories = [];
   }
 
   async render() {
@@ -45,36 +47,40 @@ class HomePage {
 
   async afterRender() {
     console.log('HomePage afterRender called');
-    if (!this._presenter) {
-      console.log('Creating new HomePresenter');
-      this._presenter = new HomePresenter(this);
+    try {
+      // Initialize presenter if not already initialized
+      if (!this._presenter) {
+        console.log('Creating new HomePresenter');
+        this._presenter = new HomePresenter(this);
+      }
+      
+      console.log('Initializing presenter');
+      await this._presenter.init();
+      this._initSearchListener();
+      
+      // Add hash change listener
+      window.addEventListener('hashchange', this._boundHashChangeHandler);
+    } catch (error) {
+      console.error('Error in afterRender:', error);
+      showResponseMessage('Error initializing page: ' + error.message);
     }
-    
-    console.log('Initializing presenter');
-    await this._presenter.init();
-    this._initSearchListener();
   }
 
-  _initSearchListener() {
-    const searchInput = document.querySelector('#searchInput');
-    if (!searchInput) return;
-    
-    let searchTimeout;
-
-    searchInput.addEventListener('input', (event) => {
-      clearTimeout(searchTimeout);
-      searchTimeout = setTimeout(() => {
-        const query = event.target.value.trim();
-        this._presenter.handleSearch(query);
-      }, 300);
-    });
+  _handleHashChange(event) {
+    const newHash = window.location.hash;
+    // If navigating away from home page
+    if (!newHash.startsWith('#/') && !newHash.startsWith('#/home')) {
+      this.destroy();
+    }
   }
 
-  showOfflineIndicator() {
-    const indicator = document.querySelector('#offlineIndicator');
-    if (indicator) {
-      indicator.classList.add('show');
+  destroy() {
+    console.log('HomePage destroy called');
+    if (this._presenter) {
+      this._presenter.destroy();
+      this._presenter = null;
     }
+    window.removeEventListener('hashchange', this._boundHashChangeHandler);
   }
 
   hideOfflineIndicator() {
@@ -84,9 +90,70 @@ class HomePage {
     }
   }
 
+  showOfflineIndicator() {
+    const indicator = document.querySelector('#offlineIndicator');
+    if (indicator) {
+      indicator.classList.add('show');
+    }
+  }
+
+  showEmptyMessage() {
+    const container = document.querySelector("#stories");
+    if (container) {
+      container.innerHTML = '<div class="no-results">Tidak ada cerita yang tersedia</div>';
+    }
+  }
+
   setPresenter(presenter) {
     console.log('Setting presenter:', presenter);
+    if (this._presenter && this._presenter !== presenter) {
+      this._presenter.destroy();
+    }
     this._presenter = presenter;
+  }
+
+  updateStoryList(stories) {
+    console.log('Updating story list with', stories?.length, 'stories');
+    if (!stories) {
+      console.warn('No stories provided to updateStoryList');
+      return;
+    }
+    this._stories = stories;
+    this._renderStories();
+  }
+
+  _renderStories() {
+    console.log('Rendering stories:', this._stories);
+    const container = document.querySelector("#stories");
+    if (!container) {
+      console.error('Stories container not found!');
+      return;
+    }
+
+    container.innerHTML = "";
+
+    if (!this._stories || this._stories.length === 0) {
+      console.log('No stories to display');
+      container.innerHTML = '<div class="no-results">Tidak ada cerita yang ditemukan</div>';
+      return;
+    }
+
+    console.log('Adding stories to container');
+    this._stories.forEach((story) => {
+      container.innerHTML += createStoryItemTemplate(story);
+    });
+    console.log('Stories rendered successfully');
+  }
+
+  _initSearchListener() {
+    const searchInput = document.querySelector('#searchInput');
+    if (searchInput) {
+      searchInput.addEventListener('input', (event) => {
+        if (this._presenter) {
+          this._presenter.handleSearch(event.target.value);
+        }
+      });
+    }
   }
 }
 

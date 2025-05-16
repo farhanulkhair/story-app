@@ -1,10 +1,22 @@
 import CONFIG from "../config.js";
-import AuthAPI from "../data/authAPI.js";
-import StoryIdb from './database';
+import AuthAPI from "./authAPI.js";
+import StoryIdb from './database.js';
 
 class StoryAPI {
   constructor() {
+    if (StoryAPI.instance) {
+      return StoryAPI.instance;
+    }
+    
     this.baseUrl = CONFIG.BASE_URL;
+    StoryAPI.instance = this;
+  }
+
+  static getInstance() {
+    if (!StoryAPI.instance) {
+      StoryAPI.instance = new StoryAPI();
+    }
+    return StoryAPI.instance;
   }
 
   // Generic GET request
@@ -96,18 +108,6 @@ class StoryAPI {
         return { error: true, message: "Not authenticated" };
       }
 
-      // Try to get from IndexedDB first
-      const offlineStories = await StoryIdb.getAllStories();
-      if (offlineStories.length > 0) {
-        console.log('Getting stories from IndexedDB');
-        return {
-          error: false,
-          message: 'Stories retrieved from local database',
-          data: { stories: offlineStories },
-        };
-      }
-
-      // If no offline data, fetch from API
       console.log('Fetching stories from API...');
       const response = await fetch(`${this.baseUrl}/stories`, {
         headers: {
@@ -121,10 +121,15 @@ class StoryAPI {
         return { error: true, message: responseJson.message };
       }
 
-      // Store in IndexedDB for offline access
+      // Get stories from the correct property (listStory)
       const stories = responseJson.listStory || [];
-      await StoryIdb.putBulkStories(stories);
-      console.log('Stories saved to IndexedDB:', stories.length);
+      console.log('Stories from API:', stories);
+
+      // Store in IndexedDB for offline access
+      if (stories.length > 0) {
+        await StoryIdb.putBulkStories(stories);
+        console.log('Stories saved to IndexedDB:', stories.length);
+      }
 
       return {
         error: false,
@@ -133,14 +138,19 @@ class StoryAPI {
     } catch (error) {
       console.error('Error in getAllStories:', error);
       
-      // If offline, try to get from IndexedDB
-      const offlineStories = await StoryIdb.getAllStories();
-      if (offlineStories.length > 0) {
-        return {
-          error: false,
-          message: 'Stories retrieved from local database',
-          data: { stories: offlineStories },
-        };
+      // If offline or error, try to get from IndexedDB
+      try {
+        const offlineStories = await StoryIdb.getAllStories();
+        if (offlineStories.length > 0) {
+          console.log('Using cached stories from IndexedDB:', offlineStories.length);
+          return {
+            error: false,
+            message: 'Stories retrieved from local database',
+            data: { stories: offlineStories },
+          };
+        }
+      } catch (dbError) {
+        console.error('Error getting stories from IndexedDB:', dbError);
       }
 
       return {
@@ -209,12 +219,15 @@ class StoryAPI {
   // Add a new story
   async addNewStory({ description, photo, lat, lon }) {
     try {
+      console.log('Starting addNewStory with:', { description, hasPhoto: !!photo, lat, lon });
+      
       // Validate inputs
       if (!description || !photo) {
         return { error: true, message: "Description and photo are required" };
       }
 
       // Optimize photo if needed
+      console.log('Optimizing photo...');
       const optimizedPhoto = await this._optimizePhoto(photo);
       
       const formData = new FormData();
@@ -222,21 +235,62 @@ class StoryAPI {
       formData.append("photo", optimizedPhoto);
 
       if (lat !== null && lon !== null) {
-        formData.append("lat", lat);
-        formData.append("lon", lon);
+        formData.append("lat", lat.toString());
+        formData.append("lon", lon.toString());
       }
 
-      const result = await this.#post("/stories", formData, true);
+      console.log('Sending story to API...');
+      const token = AuthAPI.getToken();
+      if (!token) {
+        return { error: true, message: "Not authenticated" };
+      }
+
+      const response = await fetch(`${this.baseUrl}/stories`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      const responseJson = await response.json();
+      console.log('Raw API Response:', responseJson);
+
+      if (responseJson.error) {
+        return { error: true, message: responseJson.message };
+      }
+
+      // Create story object with available data
+      const newStory = {
+        id: responseJson.story?.id || Date.now().toString(),
+        name: responseJson.story?.name || 'Anonymous',
+        description: description,
+        photoUrl: responseJson.story?.photoUrl,
+        createdAt: responseJson.story?.createdAt || new Date().toISOString(),
+        lat: lat || null,
+        lon: lon || null,
+        userId: responseJson.story?.userId
+      };
+
+      console.log('Structured story for IndexedDB:', newStory);
       
-      if (!result.error) {
-        // Send push notification asynchronously without waiting
-        this._sendPushNotification(description).catch(console.error);
-        
-        // Save to IndexedDB asynchronously
-        this._saveToIndexedDB(result.data.story).catch(console.error);
-      }
+      if (!responseJson.error) {
+        // Save to IndexedDB
+        console.log('Story saved successfully');
+        await StoryIdb.putStory(newStory);
 
-      return result;
+        // Refresh the stories list
+        const allStoriesResult = await this.getAllStories();
+        if (!allStoriesResult.error) {
+          await StoryIdb.putBulkStories(allStoriesResult.data.stories);
+          console.log('Stories in IndexedDB updated');
+        }
+
+        return {
+          error: false,
+          data: { story: newStory }
+        };
+      }
     } catch (error) {
       console.error('Error in addNewStory:', error);
       return { 
@@ -369,37 +423,45 @@ class StoryAPI {
   // Send push notification for new story
   async _sendPushNotification(description) {
     try {
-      const token = AuthAPI.getToken();
-      if (!token) {
-        return { error: true, message: "Not authenticated" };
+      const registration = await navigator.serviceWorker.ready;
+      console.log('Service Worker ready for push notification');
+      
+      if (!registration.pushManager) {
+        console.log('PushManager not available');
+        return;
       }
 
+      // Check if user is subscribed
+      const subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        console.log('User not subscribed to notifications');
+        return;
+      }
+
+      console.log('User is subscribed, sending notification');
+      
       const notificationData = {
-        title: "Story berhasil dibuat",
+        title: "Story App Notification",
         options: {
-          body: `Anda telah membuat story baru dengan deskripsi: ${description}`,
-          icon: "/icons/icon-72x72.png",
-          badge: "/icons/icon-72x72.png",
+          body: "Story baru saja ditambahkan",
+          icon: "/favicon.png",
+          badge: "/favicon.png",
           vibrate: [100, 50, 100],
           data: {
             dateOfArrival: Date.now(),
-            primaryKey: 1,
-            url: window.location.href
+            url: window.location.origin + '/#/home'
           }
         }
       };
 
-      const registration = await navigator.serviceWorker.ready;
-      if (registration.pushManager) {
-        const subscription = await registration.pushManager.getSubscription();
-        if (subscription) {
-          // Send notification data to service worker
-          registration.active.postMessage({
-            type: 'PUSH_NOTIFICATION',
-            data: notificationData
-          });
-        }
-      }
+      // Kirim pesan ke service worker
+      console.log('Sending message to SW:', notificationData);
+      registration.active.postMessage({
+        type: 'PUSH_NOTIFICATION',
+        data: notificationData
+      });
+      
+      console.log('Push notification message sent');
     } catch (error) {
       console.error('Error sending push notification:', error);
     }
@@ -438,6 +500,141 @@ class StoryAPI {
       return [];
     }
   }
+
+  // Subscribe to push notifications
+  async subscribePushNotification(subscription) {
+    try {
+      if (!subscription || !subscription.endpoint) {
+        throw new Error('Invalid subscription object');
+      }
+
+      console.log('Sending subscription to server:', subscription);
+      
+      // Get subscription keys
+      const subscriptionJson = subscription.toJSON();
+      console.log('Subscription JSON:', subscriptionJson);
+
+      const token = AuthAPI.getToken();
+      if (!token) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(`${this.baseUrl}${CONFIG.PUSH_MSG_SUBSCRIBE_URL}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          endpoint: subscription.endpoint,
+          keys: {
+            p256dh: subscriptionJson.keys.p256dh,
+            auth: subscriptionJson.keys.auth
+          }
+        })
+      });
+
+      const responseJson = await response.json();
+      console.log('Server subscription response:', responseJson);
+
+      if (!responseJson.error) {
+        console.log('Successfully subscribed on server');
+        await this.notifySubscription();
+        
+        // Save subscription status locally
+        localStorage.setItem('notificationSubscribed', 'true');
+        return responseJson;
+      } else {
+        console.error('Server subscription failed:', responseJson.message);
+        throw new Error(responseJson.message || 'Server subscription failed');
+      }
+    } catch (error) {
+      console.error('Error subscribing to push notification:', error);
+      return { 
+        error: true, 
+        message: error.message || 'Failed to subscribe to push notifications' 
+      };
+    }
+  }
+
+  // Unsubscribe from push notifications
+  async unsubscribePushNotification(subscription) {
+    try {
+      if (!subscription || !subscription.endpoint) {
+        throw new Error('Invalid subscription object');
+      }
+
+      console.log('Sending unsubscription to server for endpoint:', subscription.endpoint);
+      
+      const token = AuthAPI.getToken();
+      if (!token) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(`${this.baseUrl}${CONFIG.PUSH_MSG_UNSUBSCRIBE_URL}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          endpoint: subscription.endpoint
+        })
+      });
+
+      const responseJson = await response.json();
+      console.log('Server unsubscribe response:', responseJson);
+
+      if (!responseJson.error) {
+        console.log('Successfully unsubscribed from server');
+        await this.notifyUnsubscription();
+        
+        // Remove subscription status locally
+        localStorage.removeItem('notificationSubscribed');
+      } else {
+        console.error('Server unsubscription failed:', responseJson.message);
+        throw new Error(responseJson.message || 'Server unsubscription failed');
+      }
+
+      return responseJson;
+    } catch (error) {
+      console.error('Error unsubscribing from push notification:', error);
+      return { 
+        error: true, 
+        message: error.message || 'Failed to unsubscribe from push notifications' 
+      };
+    }
+  }
+
+  // Check if notifications are subscribed
+  async isSubscribed() {
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      if (!registration.pushManager) {
+        return false;
+      }
+
+      const subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        localStorage.removeItem('notificationSubscribed');
+        return false;
+      }
+
+      // If we have a subscription but no local storage flag, assume we're subscribed
+      // This helps with page refreshes where localStorage might get cleared
+      if (!localStorage.getItem('notificationSubscribed')) {
+        localStorage.setItem('notificationSubscribed', 'true');
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error checking subscription status:', error);
+      return false;
+    }
+  }
 }
 
-export default new StoryAPI();
+// Create and export singleton instance
+const storyAPI = StoryAPI.getInstance();
+Object.freeze(storyAPI);
+export default storyAPI;
